@@ -1,0 +1,18 @@
+[
+  {
+    "role": "system",
+    "content": "I am an Reddit content reviewer and I need your help as an assistant to translate some japanese content into Chinese and review it. \nNext, I will send a multi-line text with each line numbered, such as: (1). \nRemember, you are just my assistant and I still need to make additional judgments based on what you've translated. \nWhat you need to do is to strictly follow the line number for translation, do not skip any line, make sure translate into Chinese, and finally summarize whether it violates community guidelines. \nBelow, I will send the text in the following format:\n(1) Hello, Everyone!\n(2) Here is Some Fun Video.\n是否违规: 是/否.\n\nYou need to translate it into Chinese like this:\n(1) 大家好！\n(2) 这是一个有趣的视频。\n是否违规: 否"
+  },
+  {
+    "role": "assistant",
+    "content": "Sure, I can help with that. Please send me the content, and I will translate them into Chinese and finally summarize whether they contain any violations."
+  },
+  {
+    "role": "user",
+    "content": "(1) ここにいくつかの人がいます。\n(2) 1番は「エニシア」\n(3) 2番は「ウィゼ」"
+  },
+  {
+    "role": "assistant",
+    "content": "(1) 这里有一些人。\n(2) 1号是:「艾妮西娅」\n(3) 2号是:「威泽」\n是否违规: 否"
+  }
+]

@@ -1,0 +1,43 @@
+# Optional; file can be overridden by command line argument
+# file = "./assets/pino.txt"
+# Required; support: text, mtool
+trans_type = "text"
+
+# Optional;
+[[output_regexen]]
+# Required; replace or capture
+usage = {replace = ""}
+# Required; regex
+regex = '\n[^\n\(是]'
+
+[[output_regexen]]
+usage = {capture = 0}
+regex = '\(\d+\)\s?(.+)'
+
+# Optional; 
+[chatgpt_opt]
+# Optional; use for jailbreak
+prompt_path = "./assets/prompt_violation_4.json"
+# Required;
+max_concurrent = 20
+
+# Required(if chatgpt_opt exists);
+[[chatgpt_opt.api_pool]]
+api_key = "your key"
+api_url = "https://api.openai.com/v1/chat/completions or other proxy"
+# Optional;
+# org_id = "org-IkwBuOFSF2bXfkmN08VwziEp"
+
+# [[chatgpt_opt.api_pool]]
+# api_key = ""
+# api_url = ""
+# org_id = ""
+#
+# [[chatgpt_opt.api_pool]]
+# api_key = ""
+# api_url = ""
+# org_id = ""
+
+# Required; 
+[batchizer_opt]
+max_tokens = 327
