@@ -240,6 +240,9 @@ where
             writer.write(&buf[..size]).unwrap();
         }
         if dignostic_failed_range.is_empty() {
+            let _ = std::fs::remove_file(format!("{}.dignostic_failed.json", textures.name));
+        } else {
+            // try deledte dignostic file
             println!("[Dignostic] failed range: {:?}", dignostic_failed_range);
             let writer = std::fs::OpenOptions::new()
                 .create(true)
@@ -249,9 +252,6 @@ where
                 .expect("Failed to create file");
             let writer = std::io::BufWriter::new(writer);
             serde_json::to_writer(writer, &dignostic_failed_range).unwrap();
-        } else {
-            // try deledte dignostic file
-            let _ = std::fs::remove_file(format!("{}.dignostic_failed.json", textures.name));
         }
     }
 }
