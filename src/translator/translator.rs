@@ -200,5 +200,5 @@ pub trait TranslateClient<T>: Send + Sync + 'static {
 }
 
 pub trait Batchizer<T>: Send + Sync + 'static {
-    fn batchize(&self, textures: &Textures, index: usize) -> (Vec<T>, usize);
+    fn batchize(&self, textures: &Textures, index: usize, end: Option<usize>) -> (Vec<T>, usize);
 }

@@ -17,13 +17,19 @@ pub struct TokenizedBatchizer {
 }
 
 impl Batchizer<ChatCompletionMessage> for TokenizedBatchizer {
-    fn batchize(&self, textures: &Textures, start: usize) -> (Vec<ChatCompletionMessage>, usize) {
+    fn batchize(
+        &self,
+        textures: &Textures,
+        start: usize,
+        end: Option<usize>,
+    ) -> (Vec<ChatCompletionMessage>, usize) {
         let mut str_content = String::new();
         let mut max_tokens = 0;
         let mut size = 0;
         let mut prefix: Option<char> = None;
         let mut i = start;
-        while i < textures.lines.len() {
+        let end = end.unwrap_or(textures.lines.len() - 1);
+        while i <= end {
             let line = &textures.lines[i];
             max_tokens += self.bep.encode_with_special_tokens(&line.content).len();
             let prefix_a = line.content.chars().next();
@@ -149,24 +155,33 @@ impl ConcurrentTranslate<ChatCompletionMessage> for TranslateChatGPT {
         let by_line_count = false; //todo
         if !by_line_count {
             let mut batch_queue = Vec::new();
-            let mut spec_range_index = 0;
-            let mut i = if let Some(specify_range) = &self.specify_range {
-                specify_range[spec_range_index].0
+            if let Some(specify_range) = &self.specify_range {
+                // specify range
+                for (start, end) in specify_range.iter() {
+                    let mut i = *start;
+                    while i <= *end {
+                        let (batch, size) = batchizer.batchize(textures, i, Some(*end));
+                        println!("specify_range: {}-{}, i: {}, size: {}", start, end, i, size);
+                        if size == 0 {
+                            eprintln!("batch size is 0");
+                            break;
+                        }
+                        batch_queue.push((batch, (i, i + size - 1)));
+                        i += size;
+                    }
+                }
             } else {
-                textures.curr_index
-            };
-            while i < textures.lines.len() {
-                let (batch, size) = batchizer.batchize(textures, i);
-                batch_queue.push((batch, (i, i + size - 1)));
-                i = if let Some(spec_range) = &self.specify_range {
-                    spec_range_index += 1;
-                    if spec_range_index >= spec_range.len() {
+                // all
+                let mut i = textures.curr_index;
+                while i < textures.lines.len() {
+                    let (batch, size) = batchizer.batchize(textures, i, None);
+                    if size == 0 {
+                        eprintln!("batch size is 0");
                         break;
                     }
-                    spec_range[spec_range_index].0
-                } else {
-                    i + size
-                };
+                    batch_queue.push((batch, (i, i + size - 1)));
+                    i += size;
+                }
             }
             // reverse for pop
             batch_queue.reverse();
@@ -570,6 +585,50 @@ mod test {
     }
 
     #[test]
+    pub fn test_tokenized_batchizer_with_specify_range() {
+        let bep = tiktoken_rs::cl100k_base().unwrap();
+        let len = bep.encode_with_special_tokens("1 hello world!").len();
+        println!("1 hello world! tokens: {}", len);
+        let len = bep.encode_with_special_tokens("29 hello world!").len();
+        println!("29 hello world! tokens: {}", len);
+
+        let lines = (0..30)
+            .into_iter()
+            .map(|i| TextureLine::new(0, 0, format!("{} hello world!", i + 1).to_string(), false))
+            .collect::<Vec<_>>();
+        let textures = Textures {
+            lines,
+            curr_index: 0,
+            name: "".to_string(),
+        };
+
+        let batchizer = TokenizedBatchizer {
+            bep: tiktoken_rs::cl100k_base().unwrap(),
+            max_tokens: len * 3,
+        };
+        let specify_range = vec![(0, 4), (2, 11)];
+        let tor = TranslateChatGPT::new(
+            ChatGPTOptions {
+                api_pool: vec![ChatGPTAPI {
+                    api_key: "".to_string(),
+                    api_url: "".to_string(),
+                    org_id: None,
+                }],
+                prompt_path: None,
+                max_concurrent: 30,
+            },
+            Some(specify_range),
+        );
+        let mut batch_queue = tor.create_batch_queue(batchizer, &textures);
+        batch_queue.reverse();
+        batch_queue.iter().for_each(|b| {
+            println!("batch: {:?}", b);
+        });
+        // (0, 4) -> 2 batch; (2, 11)[2,3,4,5,6,7,8,9,10,11]10 -> 3 batch beacuse 10,11 same prefix
+        assert_eq!(batch_queue.len(), 5);
+    }
+
+    #[test]
     pub fn test_tokenized_batchizer() {
         let lines = vec![
             "请原谅我",
@@ -594,10 +653,10 @@ mod test {
             bep: tiktoken_rs::cl100k_base().unwrap(),
             max_tokens: 500,
         };
-        let (_, size) = batchizer.batchize(&textures, 0);
+        let (_, size) = batchizer.batchize(&textures, 0, None);
         assert_eq!(size, 8);
         batchizer.max_tokens = 1;
-        let (_, size) = batchizer.batchize(&textures, 0);
+        let (_, size) = batchizer.batchize(&textures, 0, None);
         assert_eq!(size, 4);
     }
 

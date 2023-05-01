@@ -60,10 +60,13 @@ pub async fn start(args: Arguments) -> Result<()> {
     cfg.specify_range = {
         match fs::OpenOptions::new()
             .read(true)
-            .open(format!("{}.dignostic_failed.json", file))
+            .open(format!("{}.dignostic_failed_range.json", file))
         {
             Ok(v) => match serde_json::from_reader::<_, Vec<(usize, usize)>>(v) {
-                Ok(v) => Some(v),
+                Ok(v) => {
+                    println!("load specify range");
+                    Some(v)
+                }
                 _ => None,
             },
             _ => None,

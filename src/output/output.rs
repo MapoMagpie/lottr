@@ -203,7 +203,7 @@ where
                             break;
                         }
                         eprintln!(
-                            "[Dignostic] raw: {}\ntran: {}",
+                            "[Dignostic] raw: {}\n[Dignostic] tran: {}",
                             raw_line.unwrap().content,
                             tran_line.unwrap(),
                         );
