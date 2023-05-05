@@ -2,6 +2,12 @@
 # file = "./assets/pino.txt"
 # Required; support: text, mtool
 trans_type = "mtool"
+# Required; specify the source language
+# iso639-1 code: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+from = "eng"
+# Required; scpecify the target language
+# iso639-1 code: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+to = "zho"
 
 # Optional;
 [[output_regexen]]

@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::Parser;
 use input::input;
 use input::TransType;
+use isolang::Language;
 use output::output;
 use output::OutputRegex;
 use serde::{Deserialize, Serialize};
@@ -18,6 +19,12 @@ mod utils;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
     pub file: Option<String>,
+    /// iso 639-3 code, see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+    #[serde(rename = "from")]
+    pub lang_from: Language,
+    /// iso 639-3 code, see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+    #[serde(rename = "to")]
+    pub lang_to: Language,
     pub trans_type: TransType,
     pub output_regexen: Vec<OutputRegex>,
     pub chatgpt_opt: Option<ChatGPTOptions>,
@@ -131,6 +138,7 @@ mod test {
             Some(MToolOptions {
                 line_width: Some(36)
             })
-        )
+        );
+        assert_eq!(config.lang_to.to_name(), "Chinese");
     }
 }

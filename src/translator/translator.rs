@@ -49,7 +49,12 @@ pub async fn translate(
             bep: tiktoken_rs::cl100k_base().unwrap(),
             max_tokens: cfg.batchizer_opt.max_tokens.clone(),
         };
-        let mut chat_gpt = TranslateChatGPT::new(chatgpt_opt.clone(), cfg.specify_range.clone());
+        let mut chat_gpt = TranslateChatGPT::new(
+            chatgpt_opt.clone(),
+            cfg.specify_range.clone(),
+            cfg.lang_from.to_name(),
+            cfg.lang_to.to_name(),
+        );
         tokio::spawn(async move {
             chat_gpt.translate(textures_r, batchizer, tx_r).await;
             if let Err(e) = close_tx_r.send(1).await {
@@ -201,4 +206,52 @@ pub trait TranslateClient<T>: Send + Sync + 'static {
 
 pub trait Batchizer<T>: Send + Sync + 'static {
     fn batchize(&self, textures: &Textures, index: usize, end: Option<usize>) -> (Vec<T>, usize);
+}
+
+#[cfg(test)]
+mod test {
+    use isolang::Language;
+    use serde::{Deserialize, Serialize};
+
+    #[test]
+    fn test_iso_639() {
+        let en = Language::from_639_1("en").expect(
+            "not a valid iso 639-1 code see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes",
+        );
+        assert_eq!(en.to_name(), "English");
+    }
+
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+    pub struct Wrapper {
+        pub lang: Language,
+    }
+
+    #[test]
+    fn test_iso_639_serialize() {
+        let en = Language::from_639_1("en").expect(
+            "not a valid iso 639-1 code see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes",
+        );
+        let wrapper = Wrapper { lang: en };
+        let en_str = toml::to_string(&wrapper).unwrap();
+        assert_eq!(en_str, "lang = \"eng\"\n");
+    }
+
+    #[test]
+    fn test_iso_639_deserialize() {
+        let en_str = "lang = \"en\"\n";
+        let wrapper: Wrapper = toml::from_str(en_str).unwrap();
+        let en = Language::from_639_1("en").expect(
+            "not a valid iso 639-1 code see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes",
+        );
+        assert_eq!(wrapper.lang, en);
+        let en_str = "lang = \"eng\"\n";
+        let wrapper: Wrapper = toml::from_str(en_str).unwrap();
+        assert_eq!(wrapper.lang, en);
+        let en_str = "lang = \"zho\"\n";
+        let wrapper: Wrapper = toml::from_str(en_str).unwrap();
+        assert_eq!(wrapper.lang.to_name(), "Chinese");
+        let en_str = "lang = \"cn\"\n";
+        let wrapper: Wrapper = toml::from_str(en_str).unwrap();
+        assert_eq!(wrapper.lang.to_name(), "Chinese");
+    }
 }

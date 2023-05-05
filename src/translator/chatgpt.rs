@@ -1,7 +1,8 @@
-use std::{fs, io::BufReader, str::FromStr};
+use std::{fs, str::FromStr};
 
 use anyhow::Result;
 use async_trait::async_trait;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tiktoken_rs::CoreBPE;
 
@@ -78,17 +79,23 @@ pub struct TranslateChatGPT {
 }
 
 impl TranslateChatGPT {
-    pub fn new(opt: ChatGPTOptions, specify_range: Option<Vec<(usize, usize)>>) -> Self {
+    pub fn new(
+        opt: ChatGPTOptions,
+        specify_range: Option<Vec<(usize, usize)>>,
+        from: &str,
+        to: &str,
+    ) -> Self {
         if opt.api_pool.is_empty() {
             panic!("ChatGPT api pool is empty");
         }
         let prompts = if let Some(path) = &opt.prompt_path {
-            let prompt_file = fs::OpenOptions::new()
-                .read(true)
-                .open(path)
-                .expect("ChatGPT prompt file not found");
-            let reader = BufReader::new(prompt_file);
-            let prompts = serde_json::from_reader::<_, Vec<ChatCompletionMessage>>(reader)
+            let mut prompt_content =
+                fs::read_to_string(path).expect("ChatGPT prompt file is not valid");
+            let replace = Regex::new(r"\{\{from\}\}").unwrap();
+            prompt_content = replace.replace_all(&prompt_content, from).to_string();
+            let replace = Regex::new(r"\{\{to\}\}").unwrap();
+            prompt_content = replace.replace_all(&prompt_content, to).to_string();
+            let prompts = serde_json::from_str::<Vec<ChatCompletionMessage>>(&prompt_content)
                 .expect("ChatGPT prompt file is not valid");
             Some(prompts)
         } else {
@@ -618,6 +625,8 @@ mod test {
                 max_concurrent: 30,
             },
             Some(specify_range),
+            "zho",
+            "eng",
         );
         let mut batch_queue = tor.create_batch_queue(batchizer, &textures);
         batch_queue.reverse();
@@ -685,6 +694,8 @@ mod test {
                 max_concurrent: 10,
             },
             None,
+            "Japanese",
+            "Chinese",
         );
         let client = gpt.create_client();
         assert_eq!(client.api_key, "test1");
@@ -742,6 +753,8 @@ mod test {
                 max_concurrent: 1,
             },
             None,
+            "Japanese",
+            "Chinese",
         )
         .create_client();
 
@@ -763,6 +776,8 @@ mod test {
                 max_concurrent: 1,
             },
             None,
+            "Japanese",
+            "Chinese",
         )
         .create_client();
 
