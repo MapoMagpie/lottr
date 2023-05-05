@@ -23,6 +23,12 @@ pub struct Configuration {
     pub chatgpt_opt: Option<ChatGPTOptions>,
     pub specify_range: Option<Vec<(usize, usize)>>,
     pub batchizer_opt: BatchizerOptions,
+    pub mtool_opt: Option<MToolOptions>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MToolOptions {
+    pub line_width: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,12 +82,12 @@ pub async fn start(args: Arguments) -> Result<()> {
     let textures = input(cfg.trans_type, &file)?;
 
     if args.output_only {
-        return output(cfg.trans_type, cfg.output_regexen, &textures);
+        return output(&cfg, &textures);
     }
 
     let mut textures_mut = textures.clone();
     translate(textures, &mut textures_mut, &cfg).await?;
-    output(cfg.trans_type, cfg.output_regexen, &textures_mut)
+    output(&cfg, &textures_mut)
 }
 
 pub struct Timer {
@@ -111,14 +117,20 @@ impl Timer {
 
 #[cfg(test)]
 mod test {
-    use crate::Configuration;
+    use crate::{Configuration, MToolOptions};
 
     #[test]
     fn options_deserialize() {
-        let str = include_str!("../assets/options_text.toml");
-        let options: Configuration = toml::from_str(str).unwrap();
-        options.output_regexen.iter().for_each(|x| {
+        let str = include_str!("../assets/options_mtool.toml");
+        let config: Configuration = toml::from_str(str).unwrap();
+        config.output_regexen.iter().for_each(|x| {
             println!("{:?}", x);
         });
+        assert_eq!(
+            config.mtool_opt,
+            Some(MToolOptions {
+                line_width: Some(36)
+            })
+        )
     }
 }

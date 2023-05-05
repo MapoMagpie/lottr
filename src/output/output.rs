@@ -7,28 +7,36 @@ use anyhow::Result;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
-use crate::{input::TransType, textures::Textures, translator::Translator};
+use crate::{input::TransType, textures::Textures, translator::Translator, Configuration};
 
 use super::{mtool::MToolOutput, text::TextOutput};
 
-pub fn output(
-    trans_type: TransType,
-    output_regexen: Vec<OutputRegex>,
-    textures: &Textures,
-) -> Result<()> {
-    match trans_type {
+pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
+    match config.trans_type {
         TransType::Text => {
-            if output_regexen.len() < 2 {
+            if config.output_regexen.len() < 2 {
                 return Err(anyhow::anyhow!("Please specify at least 2 regexes for MTool output! \n The MTool output need 2 regexes, one for the replace, and one for the capture."));
             }
-            let output = TextOutput::new(&output_regexen[0].regex, &output_regexen[1].regex);
+            let output = TextOutput::new(
+                &config.output_regexen[0].regex,
+                &config.output_regexen[1].regex,
+            );
             output.output(Translator::ChatGPT, textures);
         }
         TransType::MTool => {
-            if output_regexen.len() < 2 {
+            if config.output_regexen.len() < 2 {
                 return Err(anyhow::anyhow!("Please specify at least 2 regexes for MTool output! \n The MTool output need 2 regexes, one for the replace, and one for the capture."));
             }
-            let output = MToolOutput::new(&output_regexen[0].regex, &output_regexen[1].regex);
+            let mut output = MToolOutput::new(
+                &config.output_regexen[0].regex,
+                &config.output_regexen[1].regex,
+            );
+            let line_width = config
+                .mtool_opt
+                .as_ref()
+                .map(|v| v.line_width.clone())
+                .flatten();
+            output.set_line_width(line_width);
             output.output(Translator::ChatGPT, textures);
         }
     }

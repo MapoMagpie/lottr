@@ -41,3 +41,6 @@ api_url = "https://api.openai.com/v1/chat/completions or other proxy"
 # Required; 
 [batchizer_opt]
 max_tokens = 327
+
+[mtool_opt]
+line_width = 36
