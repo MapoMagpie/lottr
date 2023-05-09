@@ -12,6 +12,7 @@ pub fn input(trans_type: TransType, file: &str) -> Result<Textures> {
     let textures = match trans_type {
         TransType::Text => TextInput.parser(&file)?,
         TransType::MTool => MToolInput::without_ascii().parser(&file)?,
+        TransType::KS => KiriKiriKsInput::default().parser(&file)?,
     };
     Ok(textures)
 }
@@ -22,6 +23,9 @@ pub enum TransType {
     Text,
     #[serde(rename = "mtool")]
     MTool,
+    /// kirikiri ks
+    #[serde(rename = "ks")]
+    KS,
 }
 
 pub trait Input {
@@ -138,6 +142,28 @@ impl Input for MToolInput {
     }
 }
 
+pub struct KiriKiriKsInput {
+    exclude: Regex,
+}
+
+impl Default for KiriKiriKsInput {
+    fn default() -> Self {
+        Self {
+            exclude: Regex::new(r"(^[\[\*;\s]|^[\s]*$)").unwrap(),
+        }
+    }
+}
+
+impl Input for KiriKiriKsInput {
+    fn extract_line(&self, line: &str) -> Option<String> {
+        if self.exclude.is_match(line) {
+            None
+        } else {
+            Some(line.to_string())
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -189,5 +215,16 @@ mod tests {
         assert_eq!(input.extract_line(str), None);
         let str = "\"10\": \"10\",\n";
         assert_eq!(input.extract_line(str), None);
+    }
+
+    #[test]
+    fn test_kiri_kiri_ks_input() {
+        let input = KiriKiriKsInput::default();
+        let textures = input
+            .parser("./assets/test/data_scenario_n/00_01.ks")
+            .unwrap();
+        textures.lines.iter().for_each(|line| {
+            println!("{}", line.content);
+        });
     }
 }

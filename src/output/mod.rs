@@ -1,3 +1,4 @@
+mod kiri;
 mod mtool;
 mod output;
 mod text;

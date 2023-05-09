@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{input::TransType, textures::Textures, translator::Translator, Configuration};
 
-use super::{mtool::MToolOutput, text::TextOutput};
+use super::{kiri::KiriKiriOutput, mtool::MToolOutput, text::TextOutput};
 
 pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
     match config.trans_type {
@@ -37,6 +37,16 @@ pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
                 .map(|v| v.line_width.clone())
                 .flatten();
             output.set_line_width(line_width);
+            output.output(Translator::ChatGPT, textures);
+        }
+        TransType::KS => {
+            if config.output_regexen.len() < 2 {
+                return Err(anyhow::anyhow!("Please specify at least 2 regexes for MTool output! \n The MTool output need 2 regexes, one for the replace, and one for the capture."));
+            }
+            let output = KiriKiriOutput::new(
+                &config.output_regexen[0].regex,
+                &config.output_regexen[1].regex,
+            );
             output.output(Translator::ChatGPT, textures);
         }
     }
@@ -169,27 +179,10 @@ where
         while i < textures.lines.len() {
             let line = &textures.lines[i];
             if let Some(translated) = line.translated.iter().find(|t| t.translator == translator) {
-                if line.seek > pre_read_at {
-                    reader
-                        .seek_relative((pre_read_at - last_read_at) as i64)
-                        .unwrap();
-                    last_read_at = pre_read_at;
-                    let mut size = line.seek - pre_read_at;
-                    while size > 0 {
-                        let buf_slice = if size > buf.len() {
-                            &mut buf
-                        } else {
-                            &mut buf[..size]
-                        };
-                        let read_size = reader.read(buf_slice).unwrap();
-                        last_read_at += read_size;
-                        size -= read_size;
-                        writer.write(&buf_slice[..read_size]).unwrap();
-                    }
-                    pre_read_at = line.seek;
-                }
+                // check translated lines equals to raw lines
                 let content = translated.content.as_str();
                 let tran_lines = self.extract_lines(content);
+                // dignostic
                 if tran_lines.len() != translated.batch_range.1 - translated.batch_range.0 + 1 {
                     dignostic_failed_range
                         .push((translated.batch_range.0, translated.batch_range.1));
@@ -218,15 +211,33 @@ where
                     }
                     continue;
                 }
-                let mut last_line_index_in_batch = 0;
-                for (j, line) in tran_lines.iter().enumerate() {
-                    let fmt = self.format_line(&textures.lines[i + j].content, line);
+                // write
+                for (j, tran_line) in tran_lines.iter().enumerate() {
+                    let raw_line = &textures.lines[i + j];
+                    // check before not writed
+                    if raw_line.seek > pre_read_at {
+                        reader
+                            .seek_relative((pre_read_at - last_read_at) as i64)
+                            .unwrap();
+                        last_read_at = pre_read_at;
+                        let mut size = raw_line.seek - pre_read_at;
+                        while size > 0 {
+                            let buf_slice = if size > buf.len() {
+                                &mut buf
+                            } else {
+                                &mut buf[..size]
+                            };
+                            let read_size = reader.read(buf_slice).unwrap();
+                            last_read_at += read_size;
+                            size -= read_size;
+                            writer.write(&buf_slice[..read_size]).unwrap();
+                        }
+                    }
+                    // write translated lines
+                    let fmt = self.format_line(&raw_line.content, tran_line);
                     writer.write(fmt.as_bytes()).unwrap();
-                    last_line_index_in_batch = i + j;
+                    pre_read_at = raw_line.seek + raw_line.size;
                 }
-                pre_read_at = textures.lines[last_line_index_in_batch].seek
-                    + textures.lines[last_line_index_in_batch].size;
-
                 // skip the batch
                 i = translated.batch_range.1 + 1;
             } else {
@@ -248,7 +259,7 @@ where
             writer.write(&buf[..size]).unwrap();
         }
         if dignostic_failed_range.is_empty() {
-            let _ = std::fs::remove_file(format!("{}.dignostic_failed.json", textures.name));
+            let _ = std::fs::remove_file(format!("{}.dignostic_failed_range.json", textures.name));
         } else {
             // try deledte dignostic file
             println!("[Dignostic] failed range: {:?}", dignostic_failed_range);
