@@ -1,7 +1,7 @@
 # Optional; file can be overridden by command line argument
 # file = "./assets/pino.txt"
 # Required; support: text, replace
-trans_type = "replace"
+trans_type = "text"
 # Required; specify the source language
 # iso639-1 code: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 from = "jpn"
@@ -10,11 +10,11 @@ from = "jpn"
 to = "zho"
 
 # filter the input lines by regex, only the lines that match the regex will be translated, if empty, all lines will be translated
-filter_regexen = ['^\s*".*[^\x00-\x7f].*']
+filter_regexen = ['^[^;*\[\n]\s*[^\s]+']
 # capture the text by regex, and replace the text by replace_expression;
-capture_regex = ':\s"(.+)"'
+# capture_regex = ':\s"(.+)"'
 # replace the text by replace_expression, must contain flag $trans, $trans will be replaced by the translated text, example: [: "$trans"];
-replace_expression = ': "$trans"'
+# replace_expression = ': "$trans"'
 
 # Optional;
 [[output_regexen]]

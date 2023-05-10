@@ -15,9 +15,22 @@ use super::translator::{
 pub struct TokenizedBatchizer {
     pub bep: CoreBPE,
     pub max_tokens: usize,
+    pub extract_regex: Option<Regex>,
 }
 
 impl Batchizer<ChatCompletionMessage> for TokenizedBatchizer {
+    fn extract(&self, content: &str) -> Option<String> {
+        if let Some(regex) = &self.extract_regex {
+            let caps = regex.captures(content);
+            if let Some(caps) = caps {
+                Some(caps[1].to_string())
+            } else {
+                None
+            }
+        } else {
+            Some(content.to_string())
+        }
+    }
     fn batchize(
         &self,
         textures: &Textures,
@@ -31,19 +44,26 @@ impl Batchizer<ChatCompletionMessage> for TokenizedBatchizer {
         let mut i = start;
         let end = end.unwrap_or(textures.lines.len() - 1);
         while i <= end {
-            let line = &textures.lines[i];
-            max_tokens += self.bep.encode_with_special_tokens(&line.content).len();
-            let prefix_a = line.content.chars().next();
-            let is_same_suffix = prefix_a == prefix;
-            if !is_same_suffix {
-                prefix = prefix_a;
+            let line = self.extract(&textures.lines[i].content);
+            if let Some(line) = line {
+                max_tokens += self.bep.encode_with_special_tokens(&line).len();
+                let prefix_a = line.chars().next();
+                let is_same_suffix = prefix_a == prefix;
+                if !is_same_suffix {
+                    prefix = prefix_a;
+                }
+                if !is_same_suffix && max_tokens > self.max_tokens && !str_content.is_empty() {
+                    break;
+                }
+                str_content.push_str(&format!("({}) {}\n", i - start + 1, &line));
+                size += 1;
+            } else {
+                panic!(
+                    "batchizer extract line error, content: {}",
+                    &textures.lines[i].content
+                )
             }
-            if !is_same_suffix && max_tokens > self.max_tokens && !str_content.is_empty() {
-                break;
-            }
-            str_content.push_str(&format!("({}) {}\n", i - start + 1, &line.content));
             i += 1;
-            size += 1;
         }
         (
             vec![ChatCompletionMessage::new(
@@ -233,6 +253,7 @@ impl TranslateClient<ChatCompletionMessage> for ChatGPTClient {
     ) -> Result<TranslatedLine> {
         let (batch, range) = batch_and_range;
         let resp = self.create_chat_completion(batch.clone()).await?;
+        // let resp = self.create_chat_completion_test(batch.clone()).await?;
         let resp_message = resp.choices.into_iter().next().unwrap().message;
         Ok(TranslatedLine::new(
             Translator::ChatGPT,
@@ -304,6 +325,36 @@ impl ChatGPTClient {
         }
     }
 
+    #[allow(dead_code)]
+    pub async fn create_chat_completion_test(
+        &self,
+        messages: Vec<ChatCompletionMessage>,
+    ) -> Result<ChatCompletionResponse> {
+        let regex = Regex::new(r#"(\(\d+\)\s)"#).unwrap();
+        let content = &messages[0].content;
+        let content = regex.replace_all(content, "$1翻译");
+        let response = ChatCompletionResponse {
+            id: "s".to_string(),
+            object: "test".to_string(),
+            created: 0,
+            choices: vec![ChatCompletionChoice {
+                index: 0,
+                message: ChatCompletionMessage {
+                    role: ChatCompletionRole::Assistant,
+                    content: content.to_string(),
+                },
+                finish_reason: "stop".to_string(),
+            }],
+            usage: ChatComplectionUsage {
+                prompt_tokens: 0,
+                completion_tokens: 0,
+                total_tokens: 0,
+            },
+        };
+        Ok(response)
+    }
+
+    #[allow(dead_code)]
     pub async fn create_chat_completion(
         &self,
         messages: Vec<ChatCompletionMessage>,
@@ -612,6 +663,7 @@ mod test {
         let batchizer = TokenizedBatchizer {
             bep: tiktoken_rs::cl100k_base().unwrap(),
             max_tokens: len * 3,
+            extract_regex: None,
         };
         let specify_range = vec![(0, 4), (2, 11)];
         let tor = TranslateChatGPT::new(
@@ -661,6 +713,7 @@ mod test {
         let mut batchizer = TokenizedBatchizer {
             bep: tiktoken_rs::cl100k_base().unwrap(),
             max_tokens: 500,
+            extract_regex: None,
         };
         let (_, size) = batchizer.batchize(&textures, 0, None);
         assert_eq!(size, 8);
@@ -844,5 +897,46 @@ mod test {
             .collect::<Vec<(usize, usize)>>();
         result.reverse();
         assert_eq!(result, vec![(0, 1), (2, 5), (6, 9), (10, 10), (21, 23)]);
+    }
+
+    #[test]
+    fn test_batchizer_extract_for_mtool() {
+        let batchizer = TokenizedBatchizer {
+            bep: tiktoken_rs::cl100k_base().unwrap(),
+            max_tokens: 256,
+            extract_regex: Some(Regex::new(r#":\s"(.+)""#).unwrap()),
+        };
+        let content = r#" "请原谅我": "请原谅我", "#;
+        let result = batchizer.extract(content);
+        assert_eq!(result, Some("请原谅我".to_string()));
+        let content = r#" ""请原\"谅\"我": "请原\"谅\"我", "#;
+        let result = batchizer.extract(content);
+        assert_eq!(result, Some(r#"请原\"谅\"我"#.to_string()));
+    }
+
+    #[test]
+    fn test_batchizer_extract_for_ain() {
+        let batchizer = TokenizedBatchizer {
+            bep: tiktoken_rs::cl100k_base().unwrap(),
+            max_tokens: 256,
+            extract_regex: Some(Regex::new(r#"=\s"(.+)""#).unwrap()),
+        };
+        let content = r#";m[300] = "请原谅我""#;
+        let result = batchizer.extract(content);
+        assert_eq!(result, Some("请原谅我".to_string()));
+        let content = r#" ";m[300] = "请\"原谅\"我""#;
+        let result = batchizer.extract(content);
+        assert_eq!(result, Some(r#"请\"原谅\"我"#.to_string()));
+    }
+
+    #[test]
+    fn test_asdaksdlaj() {
+        let regex = Regex::new(r#"(\(\d+\)\s)"#).unwrap();
+        let content = r#"
+        (1) 请原谅我1
+        (2) 请原谅我2
+        "#;
+        let content = regex.replace_all(content, "$1翻译");
+        println!("{}", content);
     }
 }

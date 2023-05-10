@@ -1,13 +1,20 @@
 # Optional; file can be overridden by command line argument
 # file = "./assets/pino.txt"
-# Required; support: text, mtool
+# Required; support: text, replace
 trans_type = "text"
 # Required; specify the source language
 # iso639-1 code: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
-from = "eng"
+from = "jpn"
 # Required; scpecify the target language
 # iso639-1 code: https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
 to = "zho"
+
+# filter the input lines by regex, only the lines that match the regex will be translated, if empty, all lines will be translated
+filter_regexen = ['\s*.*[^\x00-\x7f].*']
+# capture the text by regex, and replace the text by replace_expression;
+# capture_regex = ':\s"(.+)"'
+# replace the text by replace_expression, must contain flag $trans, $trans will be replaced by the translated text, example: [: "$trans"];
+# replace_expression = ': "$trans"'
 
 # Optional;
 [[output_regexen]]
@@ -23,9 +30,9 @@ regex = '\(\d+\)\s?(.+)'
 # Optional; 
 [chatgpt_opt]
 # Optional; use for jailbreak
-prompt_path = "./assets/prompt_violation_4.json"
+prompt_path = "./assets/prompt_violation_5.json"
 # Required;
-max_concurrent = 20
+max_concurrent = 30
 
 # Required(if chatgpt_opt exists);
 [[chatgpt_opt.api_pool]]
@@ -46,4 +53,4 @@ api_url = "https://api.openai.com/v1/chat/completions or other proxy"
 
 # Required; 
 [batchizer_opt]
-max_tokens = 327
+max_tokens = 256

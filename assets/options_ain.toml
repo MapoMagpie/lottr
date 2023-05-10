@@ -10,11 +10,11 @@ from = "jpn"
 to = "zho"
 
 # filter the input lines by regex, only the lines that match the regex will be translated, if empty, all lines will be translated
-filter_regexen = ['^\s*".*[^\x00-\x7f].*']
+filter_regexen = ['^;m\[\d+\]\s=\s".+"']
 # capture the text by regex, and replace the text by replace_expression;
-capture_regex = ':\s"(.+)"'
+capture_regex = '=\s"(.+)"'
 # replace the text by replace_expression, must contain flag $trans, $trans will be replaced by the translated text, example: [: "$trans"];
-replace_expression = ': "$trans"'
+replace_expression = '= "$trans"'
 
 # Optional;
 [[output_regexen]]

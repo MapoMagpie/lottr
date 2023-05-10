@@ -5,11 +5,13 @@ use std::{
 
 use anyhow::Result;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 
-use crate::{input::TransType, textures::Textures, translator::Translator, Configuration};
+use crate::{
+    input::TransType, textures::Textures, translator::Translator, Configuration, RegexDescription,
+    RegexUsage,
+};
 
-use super::{kiri::KiriKiriOutput, mtool::MToolOutput, text::TextOutput};
+use super::{replace::ReplaceOutput, text::TextOutput};
 
 pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
     match config.trans_type {
@@ -23,13 +25,20 @@ pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
             );
             output.output(Translator::ChatGPT, textures);
         }
-        TransType::MTool => {
+        TransType::Replace => {
             if config.output_regexen.len() < 2 {
                 return Err(anyhow::anyhow!("Please specify at least 2 regexes for MTool output! \n The MTool output need 2 regexes, one for the replace, and one for the capture."));
             }
-            let mut output = MToolOutput::new(
+            if config.replace_expression.is_none() || config.capture_regex.is_none() {
+                return Err(anyhow::anyhow!(
+                    "Please specify a replace expression and a capture regex for output!"
+                ));
+            }
+            let mut output = ReplaceOutput::new(
                 &config.output_regexen[0].regex,
                 &config.output_regexen[1].regex,
+                &config.replace_expression.as_ref().unwrap(),
+                &config.capture_regex.as_ref().unwrap(),
             );
             let line_width = config
                 .mtool_opt
@@ -39,32 +48,8 @@ pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
             output.set_line_width(line_width);
             output.output(Translator::ChatGPT, textures);
         }
-        TransType::KS => {
-            if config.output_regexen.len() < 2 {
-                return Err(anyhow::anyhow!("Please specify at least 2 regexes for MTool output! \n The MTool output need 2 regexes, one for the replace, and one for the capture."));
-            }
-            let output = KiriKiriOutput::new(
-                &config.output_regexen[0].regex,
-                &config.output_regexen[1].regex,
-            );
-            output.output(Translator::ChatGPT, textures);
-        }
     }
     Ok(())
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OutputRegex {
-    pub usage: RegexUsage,
-    pub regex: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum RegexUsage {
-    #[serde(rename = "replace")]
-    Replace(String),
-    #[serde(rename = "capture")]
-    Capture(usize),
 }
 
 pub trait Output {
@@ -78,7 +63,7 @@ pub struct SimpleTextOutput {
 
 #[allow(dead_code)]
 impl SimpleTextOutput {
-    pub fn new(clear_rules: Vec<OutputRegex>) -> Self {
+    pub fn new(clear_rules: Vec<RegexDescription>) -> Self {
         let regex_chain = clear_rules
             .into_iter()
             .map(|r| {
@@ -279,12 +264,13 @@ where
 mod test {
     use regex::Regex;
 
+    use crate::{RegexDescription, RegexUsage};
+
     use super::SimpleTextOutput;
-    use crate::{output::RegexUsage, OutputRegex};
 
     #[test]
     fn test_clear() {
-        let output = SimpleTextOutput::new(vec![OutputRegex {
+        let output = SimpleTextOutput::new(vec![RegexDescription {
             usage: RegexUsage::Replace("".to_string()),
             regex: r"(翻译为[:：]\n?|^\d+\.\s?|是否违规.*)".to_string(),
         }]);
@@ -294,11 +280,11 @@ mod test {
         println!("after \n{}", content);
         let content = "(1) 在各种意义上，刊登了展示夫妻关系良好的短篇小说。\n是否违规：否\n\n(2) 顺带一提，在第24集之后，我想“年龄差25岁？”但是，她和桜井之间的年龄差为23岁。\n是否违规：否\n\n(3) 我不戴戒指是因为平日要做家务。\n是否违规：否\n\n(4) 由于外表和性格等原因，他在某些方面比女儿更受欢迎。是的，他是可爱本的对象。\n是否违规：否";
         let output = SimpleTextOutput::new(vec![
-            OutputRegex {
+            RegexDescription {
                 usage: RegexUsage::Replace("".to_string()),
                 regex: r"(是否违规.+|\(\d+\)\s?)".to_string(),
             },
-            OutputRegex {
+            RegexDescription {
                 usage: RegexUsage::Replace("\n".to_string()),
                 regex: r"\n{2,}".to_string(),
             },

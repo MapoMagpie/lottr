@@ -5,6 +5,7 @@ use std::{
 
 use anyhow::Result;
 use async_trait::async_trait;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use tokio::{
     select,
@@ -48,6 +49,7 @@ pub async fn translate(
         let batchizer = TokenizedBatchizer {
             bep: tiktoken_rs::cl100k_base().unwrap(),
             max_tokens: cfg.batchizer_opt.max_tokens.clone(),
+            extract_regex: cfg.capture_regex.as_ref().map(|r| Regex::new(r).unwrap()),
         };
         let mut chat_gpt = TranslateChatGPT::new(
             chatgpt_opt.clone(),
@@ -206,6 +208,7 @@ pub trait TranslateClient<T>: Send + Sync + 'static {
 
 pub trait Batchizer<T>: Send + Sync + 'static {
     fn batchize(&self, textures: &Textures, index: usize, end: Option<usize>) -> (Vec<T>, usize);
+    fn extract(&self, content: &str) -> Option<String>;
 }
 
 #[cfg(test)]

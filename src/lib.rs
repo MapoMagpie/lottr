@@ -6,7 +6,6 @@ use input::input;
 use input::TransType;
 use isolang::Language;
 use output::output;
-use output::OutputRegex;
 use serde::{Deserialize, Serialize};
 use translator::{translate, ChatGPTOptions};
 
@@ -15,6 +14,20 @@ mod output;
 mod textures;
 mod translator;
 mod utils;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RegexDescription {
+    pub usage: RegexUsage,
+    pub regex: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RegexUsage {
+    #[serde(rename = "replace")]
+    Replace(String),
+    #[serde(rename = "capture")]
+    Capture(usize),
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
@@ -26,7 +39,15 @@ pub struct Configuration {
     #[serde(rename = "to")]
     pub lang_to: Language,
     pub trans_type: TransType,
-    pub output_regexen: Vec<OutputRegex>,
+    /// filter the input lines by regex, only the lines that match the regex will be translated, if
+    /// empty, all lines will be translated
+    pub filter_regexen: Vec<String>,
+    /// capture the text by regex, and replace the text by replace_expression;
+    pub capture_regex: Option<String>,
+    /// replace the text by replace_expression, must contain flag $trans, $trans will be replaced
+    /// by the translated text, example: [: "$trans"];
+    pub replace_expression: Option<String>,
+    pub output_regexen: Vec<RegexDescription>,
     pub chatgpt_opt: Option<ChatGPTOptions>,
     pub specify_range: Option<Vec<(usize, usize)>>,
     pub batchizer_opt: BatchizerOptions,
@@ -86,7 +107,7 @@ pub async fn start(args: Arguments) -> Result<()> {
         }
     };
     // input
-    let textures = input(cfg.trans_type, &file)?;
+    let textures = input(cfg.trans_type, &file, cfg.filter_regexen.clone())?;
 
     if args.output_only {
         return output(&cfg, &textures);
