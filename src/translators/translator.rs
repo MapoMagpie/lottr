@@ -48,7 +48,7 @@ pub async fn translate(
         wait_for_translations += 1;
         let batchizer = TokenizedBatchizer {
             bep: tiktoken_rs::cl100k_base().unwrap(),
-            max_tokens: cfg.batchizer_opt.max_tokens.clone(),
+            max_tokens: cfg.batchizer_opt.max_tokens,
             extract_regex: cfg.capture_regex.as_ref().map(|r| Regex::new(r).unwrap()),
         };
         let mut chat_gpt = TranslateChatGPT::new(

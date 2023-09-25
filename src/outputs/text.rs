@@ -9,8 +9,8 @@ pub struct TextOutput {
 
 impl TextOutput {
     pub fn new(replace_rule: &str, capture_rule: &str) -> Self {
-        let replace_rule = Regex::new(&replace_rule).unwrap();
-        let capture_rule = Regex::new(&capture_rule).unwrap();
+        let replace_rule = Regex::new(replace_rule).unwrap();
+        let capture_rule = Regex::new(capture_rule).unwrap();
         Self {
             replace_rule,
             capture_rule,
@@ -23,7 +23,7 @@ impl RewriteOutput for TextOutput {
         let mut lines = vec![];
         let content = self.replace_rule.replace_all(content, "\\n").to_string();
         self.capture_rule.captures_iter(&content).for_each(|cap| {
-            lines.push(cap[1].to_string().replace("\"", ""));
+            lines.push(cap[1].to_string().replace('\"', ""));
         });
         lines
     }

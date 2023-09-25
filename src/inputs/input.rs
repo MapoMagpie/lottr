@@ -11,7 +11,7 @@ use serde::Serialize;
 
 pub fn input(trans_type: TransType, file: &str, regexen: Vec<String>) -> Result<Textures> {
     let textures = match trans_type {
-        TransType::Text | TransType::Replace => TextInput::new(regexen).read(&file)?,
+        TransType::Text | TransType::Replace => TextInput::new(regexen).read(file)?,
     };
     Ok(textures)
 }
@@ -35,7 +35,7 @@ pub trait Input {
                 let file = std::fs::OpenOptions::new()
                     .read(true)
                     .open(file_path)
-                    .expect(format!("Failed to open file: {}", file_path).as_str());
+                    .unwrap_or_else(|_| panic!("Failed to open file: {}", file_path));
                 let mut reader = BufReader::new(file);
                 let mut textures = self.parse(&mut reader)?;
                 println!(

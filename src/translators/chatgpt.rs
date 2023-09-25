@@ -22,11 +22,7 @@ impl Batchizer<ChatCompletionMessage> for TokenizedBatchizer {
     fn extract(&self, content: &str) -> Option<String> {
         if let Some(regex) = &self.extract_regex {
             let caps = regex.captures(content);
-            if let Some(caps) = caps {
-                Some(caps[1].to_string())
-            } else {
-                None
-            }
+            caps.map(|caps| caps[1].to_string())
         } else {
             Some(content.to_string())
         }
@@ -143,7 +139,7 @@ fn line_count_batchized(
             let mut str_content = String::new();
             let max_size = 4;
             let mut size = 0;
-            for i in *start..=*end {
+            (*start..=*end).for_each(|i| {
                 size += 1;
                 let line = &lines[i];
                 str_content.push_str(&format!("{}. {}\n", size + 1, &line.content));
@@ -159,7 +155,7 @@ fn line_count_batchized(
                     str_content.clear();
                     size = 0;
                 }
-            }
+            });
         }
         // reverse for pop
         batch_queue.reverse();
@@ -314,6 +310,7 @@ impl ChatGPTClient {
         if let Some(prompts) = prompts {
             request.messages = prompts;
         }
+        request.temperature = Some(0.6);
         Self {
             client,
             api_key: api_key.to_string(),
@@ -486,9 +483,9 @@ impl Default for ChatCompletionRequest {
 }
 
 // impl Into<Body> for &ChatCompletionRequest
-impl Into<reqwest::Body> for &ChatCompletionRequest {
-    fn into(self) -> reqwest::Body {
-        let json = serde_json::to_string(&self).unwrap();
+impl From<&ChatCompletionRequest> for reqwest::Body {
+    fn from(val: &ChatCompletionRequest) -> Self {
+        let json = serde_json::to_string(&val).unwrap();
         reqwest::Body::from(json)
     }
 }
@@ -651,7 +648,6 @@ mod test {
         println!("29 hello world! tokens: {}", len);
 
         let lines = (0..30)
-            .into_iter()
             .map(|i| TextureLine::new(0, 0, format!("{} hello world!", i + 1).to_string(), false))
             .collect::<Vec<_>>();
         let textures = Textures {

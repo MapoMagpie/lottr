@@ -2,17 +2,17 @@ use std::fs;
 
 use anyhow::Result;
 use clap::Parser;
-use input::input;
-use input::TransType;
+use inputs::in_put;
+use inputs::TransType;
 use isolang::Language;
-use output::output;
+use outputs::out_put;
 use serde::{Deserialize, Serialize};
-use translator::{translate, ChatGPTOptions};
+use translators::{translate, ChatGPTOptions};
 
-mod input;
-mod output;
+mod inputs;
+mod outputs;
 mod textures;
-mod translator;
+mod translators;
 mod utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,15 +107,15 @@ pub async fn start(args: Arguments) -> Result<()> {
         }
     };
     // input
-    let textures = input(cfg.trans_type, &file, cfg.filter_regexen.clone())?;
+    let textures = in_put(cfg.trans_type, &file, cfg.filter_regexen.clone())?;
 
     if args.output_only {
-        return output(&cfg, &textures);
+        return out_put(&cfg, &textures);
     }
 
     let mut textures_mut = textures.clone();
     translate(textures, &mut textures_mut, &cfg).await?;
-    output(&cfg, &textures_mut)
+    out_put(&cfg, &textures_mut)
 }
 
 pub struct Timer {

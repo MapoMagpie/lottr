@@ -7,8 +7,8 @@ use anyhow::Result;
 use regex::Regex;
 
 use crate::{
-    input::TransType, textures::Textures, translator::Translator, Configuration, RegexDescription,
-    RegexUsage,
+    inputs::TransType, textures::Textures, translators::Translator, Configuration,
+    RegexDescription, RegexUsage,
 };
 
 use super::{replace::ReplaceOutput, text::TextOutput};
@@ -37,14 +37,10 @@ pub fn output(config: &Configuration, textures: &Textures) -> Result<()> {
             let mut output = ReplaceOutput::new(
                 &config.output_regexen[0].regex,
                 &config.output_regexen[1].regex,
-                &config.replace_expression.as_ref().unwrap(),
-                &config.capture_regex.as_ref().unwrap(),
+                config.replace_expression.as_ref().unwrap(),
+                config.capture_regex.as_ref().unwrap(),
             );
-            let line_width = config
-                .mtool_opt
-                .as_ref()
-                .map(|v| v.line_width.clone())
-                .flatten();
+            let line_width = config.mtool_opt.as_ref().and_then(|v| v.line_width);
             output.set_line_width(line_width);
             output.output(Translator::ChatGPT, textures);
         }
@@ -107,7 +103,7 @@ impl Output for SimpleTextOutput {
             if let Some(translated) = line.translated.iter().find(|t| t.translator == translator) {
                 let content = translated.content.as_str();
                 let content = self.clear(content);
-                output_file
+                let _ = output_file
                     .write(content.as_bytes())
                     .expect("Failed to write to file");
                 if i != translated.batch_range.0 {
@@ -137,7 +133,7 @@ where
         let original_file = std::fs::OpenOptions::new()
             .read(true)
             .open(&textures.name)
-            .expect(format!("Failed to open file {}", &textures.name).as_str());
+            .unwrap_or_else(|_| panic!("Failed to open file {}", &textures.name));
         let ext = std::path::Path::new(&textures.name)
             .extension()
             .unwrap()
@@ -151,7 +147,7 @@ where
                 "{}.translated_{:?}.{}",
                 textures.name, translator, ext
             ))
-            .expect(format!("Failed to open file {}", &textures.name).as_str());
+            .unwrap_or_else(|_| panic!("Failed to open file {}", &textures.name));
         let mut reader = std::io::BufReader::new(original_file);
         let mut buf: [u8; 8192] = [0; 8192];
         let mut last_read_at = 0;
@@ -179,21 +175,21 @@ where
                         translated.batch_range.1 - translated.batch_range.0 + 1,
                         tran_lines.len()
                     );
-                    let mut tran_lines_iter = tran_lines.iter();
-                    let mut raw_lines_iter =
-                        textures.lines[translated.batch_range.0..=translated.batch_range.1].iter();
-                    loop {
-                        let tran_line = tran_lines_iter.next();
-                        let raw_line = raw_lines_iter.next();
-                        if tran_line.is_none() || raw_line.is_none() {
-                            break;
-                        }
-                        eprintln!(
-                            "[Dignostic] raw: {}\n[Dignostic] tran: {}",
-                            raw_line.unwrap().content,
-                            tran_line.unwrap(),
-                        );
-                    }
+                    // let mut tran_lines_iter = tran_lines.iter();
+                    // let mut raw_lines_iter =
+                    // textures.lines[translated.batch_range.0..=translated.batch_range.1].iter();
+                    // loop {
+                    //     let tran_line = tran_lines_iter.next();
+                    //     let raw_line = raw_lines_iter.next();
+                    //     if tran_line.is_none() || raw_line.is_none() {
+                    //         break;
+                    //     }
+                    //     eprintln!(
+                    //         "[Dignostic] raw: {}\n[Dignostic] tran: {}",
+                    //         raw_line.unwrap().content,
+                    //         tran_line.unwrap(),
+                    //     );
+                    // }
                     continue;
                 }
                 // write
@@ -215,12 +211,12 @@ where
                             let read_size = reader.read(buf_slice).unwrap();
                             last_read_at += read_size;
                             size -= read_size;
-                            writer.write(&buf_slice[..read_size]).unwrap();
+                            let _ = writer.write(&buf_slice[..read_size]).unwrap();
                         }
                     }
                     // write translated lines
                     let fmt = self.format_line(&raw_line.content, tran_line);
-                    writer.write(fmt.as_bytes()).unwrap();
+                    let _ = writer.write(fmt.as_bytes()).unwrap();
                     pre_read_at = raw_line.seek + raw_line.size;
                 }
                 // skip the batch
@@ -241,7 +237,7 @@ where
             if size == 0 {
                 break;
             }
-            writer.write(&buf[..size]).unwrap();
+            let _ = writer.write(&buf[..size]).unwrap();
         }
         if dignostic_failed_range.is_empty() {
             let _ = std::fs::remove_file(format!("{}.dignostic_failed_range.json", textures.name));

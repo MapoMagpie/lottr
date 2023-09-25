@@ -36,7 +36,7 @@ impl RewriteOutput for ReplaceOutput {
     fn format_line(&self, raw: &str, content: &str) -> String {
         let content = escape_json_string(content, self.line_width);
         let content = self.replace_expression.replace("$trans", &content);
-        let content = self.capture_regex.replace(&raw, content);
+        let content = self.capture_regex.replace(raw, content);
         content.to_string()
     }
 }

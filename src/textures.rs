@@ -2,7 +2,7 @@ use std::fs;
 
 use serde::{Deserialize, Serialize};
 
-use crate::translator::Translator;
+use crate::translators::Translator;
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Textures {
